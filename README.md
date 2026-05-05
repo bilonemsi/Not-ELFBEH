@@ -1,7 +1,9 @@
-
 # Not-ELFBEH | Markdown Notes
 
 Bu uygulama Docker üzerinde çalıştırılmak üzere optimize edilmiştir ve Google Gemini AI desteği ile Firebase Kimlik Doğrulama sunar.
+
+## Güvenlik Uyarısı
+GitHub'a kod yüklerken `.env` dosyanızı **asla** yüklemeyin. Bu proje, hassas anahtarların commit edilmesini engellemek için `.gitignore` dosyası içermektedir.
 
 ## Kurulum ve Yapılandırma
 
@@ -40,4 +42,4 @@ docker run -d -p 3000:3000 \
 ```
 
 ## Önemli Not
-Eğer anahtarları Docker'a geçirmenize rağmen hata alıyorsanız, Next.js'in bu değişkenleri build sırasında (derleme aşamasında) görmesi gerekebilir. Bu durumda `docker build` komutuna `--build-arg` eklemek veya değişkenleri `.env.local` dosyasına yazıp Docker içine kopyalamak gerekebilir.
+Eğer anahtarları Docker'a geçirmenize rağmen hata alıyorsanız, Next.js'in bu değişkenleri build sırasında (derleme aşamasında) görmesi gerekebilir. Bu durumda `docker build` komutuna `--build-arg` eklemek gerekebilir.
