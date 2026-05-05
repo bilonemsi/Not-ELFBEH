@@ -10,31 +10,45 @@ GitHub'a kod yüklerken `.env` dosyanızı **asla** yüklemeyin. Bu proje, hassa
 Uygulamanın çalışması için gerekli olan çevre değişkenlerini (Environment Variables) `.env` dosyası içinde tanımlamanız gerekir.
 
 ### 1. Yapılandırma Dosyası
-Proje kök dizininde bir `.env` dosyası oluşturun (veya `.env.example` dosyasının adını değiştirin) ve içini doldurun:
+Proje kök dizininde bir `.env` dosyası oluşturun ve içini Firebase konsolundan aldığınız bilgilerle doldurun:
 
-- `GOOGLE_GENAI_API_KEY`: AI özellikleri için anahtar.
-- `NEXT_PUBLIC_FIREBASE_...`: Firebase projenizden aldığınız bilgiler.
+```env
+# Google AI (Gemini) API Anahtarı
+GOOGLE_GENAI_API_KEY=your_gemini_api_key_here
+
+# Firebase Konfigürasyonu
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+```
 
 ## Docker ile Çalıştırma
 
-### Docker Compose ile (Önerilen)
+### Seçenek 1: Docker Compose ile (Önerilen)
 
-En kolay yöntem Docker Compose kullanmaktır:
+En hızlı ve kolay yöntemdir. `.env` dosyanızdaki değişkenleri otomatik olarak okur:
 
 ```bash
-# Uygulamayı arka planda başlatın
+# Uygulamayı derleyin ve arka planda başlatın
 docker-compose up -d --build
 ```
 
-### Docker CLI ile
+### Seçenek 2: Docker CLI ile
+
+Eğer işlemleri adım adım yapmak isterseniz:
 
 ```bash
-# Projeyi derleyin
+# 1. İmajı derleyin
 docker build -t not-elfbeh .
 
-# Değişkenlerle birlikte çalıştırın
+# 2. Konteyneri .env dosyasını kullanarak çalıştırın
 docker run -d -p 3000:3000 --name not-elfbeh --env-file .env not-elfbeh
 ```
 
-## Önemli Not
-Next.js `NEXT_PUBLIC_` değişkenlerini **derleme (build)** aşamasında kodun içine gömer. Bu yüzden `.env` dosyanızın `docker-compose up` komutunu çalıştırmadan önce hazır olduğundan emin olun. Değişkenleri değiştirirseniz `--build` parametresi ile imajı yeniden oluşturmanız gerekir.
+## Önemli Notlar
+*   **Derleme Aşaması:** Next.js, `NEXT_PUBLIC_` ile başlayan değişkenleri **derleme (build)** anında kodun içine gömer. Bu nedenle, Docker imajını oluşturmadan (build etmeden) önce `.env` dosyanızın hazır ve doğru bilgilerle dolu olduğundan emin olun.
+*   **Değişiklikler:** Eğer `.env` dosyasındaki bir bilgiyi değiştirirseniz, imajı yeniden derlemeniz (build etmeniz) gerekir.
+*   **Port:** Uygulama varsayılan olarak `3000` portunda çalışır.
