@@ -7,39 +7,34 @@ GitHub'a kod yüklerken `.env` dosyanızı **asla** yüklemeyin. Bu proje, hassa
 
 ## Kurulum ve Yapılandırma
 
-Uygulamanın çalışması için gerekli olan çevre değişkenlerini (Environment Variables) Docker başlatırken tanımlamanız gerekir.
+Uygulamanın çalışması için gerekli olan çevre değişkenlerini (Environment Variables) `.env` dosyası içinde tanımlamanız gerekir.
 
-### 1. Firebase Yapılandırması (Giriş Sistemi İçin)
-Firebase konsolundan bir proje oluşturun ve şu bilgileri Docker'a geçirin:
-- `NEXT_PUBLIC_FIREBASE_API_KEY`
-- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
-- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
-- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
-- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
-- `NEXT_PUBLIC_FIREBASE_APP_ID`
+### 1. Yapılandırma Dosyası
+Proje kök dizininde bir `.env` dosyası oluşturun (veya `.env.example` dosyasının adını değiştirin) ve içini doldurun:
 
-### 2. Yapay Zeka (AI) Kurulumu
-1. [Google AI Studio](https://aistudio.google.com/app/apikey) adresinden bir API Key alın.
-2. `GOOGLE_GENAI_API_KEY` değişkeni ile Docker'a geçirin.
+- `GOOGLE_GENAI_API_KEY`: AI özellikleri için anahtar.
+- `NEXT_PUBLIC_FIREBASE_...`: Firebase projenizden aldığınız bilgiler.
 
 ## Docker ile Çalıştırma
+
+### Docker Compose ile (Önerilen)
+
+En kolay yöntem Docker Compose kullanmaktır:
+
+```bash
+# Uygulamayı arka planda başlatın
+docker-compose up -d --build
+```
+
+### Docker CLI ile
 
 ```bash
 # Projeyi derleyin
 docker build -t not-elfbeh .
 
-# Değişkenlerle birlikte çalıştırın (Örnek)
-docker run -d -p 3000:3000 \
-  --name not-elfbeh \
-  -e GOOGLE_GENAI_API_KEY="AI_ANAHTARINIZ" \
-  -e NEXT_PUBLIC_FIREBASE_API_KEY="FB_KEY" \
-  -e NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="FB_DOMAIN" \
-  -e NEXT_PUBLIC_FIREBASE_PROJECT_ID="FB_ID" \
-  -e NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="FB_BUCKET" \
-  -e NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="SENDER_ID" \
-  -e NEXT_PUBLIC_FIREBASE_APP_ID="APP_ID" \
-  not-elfbeh
+# Değişkenlerle birlikte çalıştırın
+docker run -d -p 3000:3000 --name not-elfbeh --env-file .env not-elfbeh
 ```
 
 ## Önemli Not
-Eğer anahtarları Docker'a geçirmenize rağmen hata alıyorsanız, Next.js'in bu değişkenleri build sırasında (derleme aşamasında) görmesi gerekebilir. Bu durumda `docker build` komutuna `--build-arg` eklemek gerekebilir.
+Next.js `NEXT_PUBLIC_` değişkenlerini **derleme (build)** aşamasında kodun içine gömer. Bu yüzden `.env` dosyanızın `docker-compose up` komutunu çalıştırmadan önce hazır olduğundan emin olun. Değişkenleri değiştirirseniz `--build` parametresi ile imajı yeniden oluşturmanız gerekir.
