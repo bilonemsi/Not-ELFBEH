@@ -1,0 +1,11 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "app-empty-state",
+      "description": "A clean, minimalist workspace with a notebook and pen",
+      "imageUrl": "https://picsum.photos/seed/not-elfbeh-empty/800/600",
+      "imageHint": "minimalist workspace"
+    }
+  ]
+}
