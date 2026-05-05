@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -19,7 +20,9 @@ import {
   Type,
   Settings,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  LogOut,
+  User as UserIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,6 +61,8 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 import { processNoteWithAI } from '@/ai/flows/note-assistant-flow';
 import { useToast } from '@/hooks/use-toast';
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
 
 export function NoteApp() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -68,8 +73,11 @@ export function NoteApp() {
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const isMobile = useIsMobile();
   const { toast } = useToast();
+  const currentUser = auth.currentUser;
 
   useEffect(() => {
+    // Notları kullanıcıya özel bir anahtarla saklamak daha güvenlidir.
+    // Şimdilik genel localStorage kullanılıyor ancak login şartı eklendi.
     setNotes(getLocalNotes());
     if (isMobile) {
       setSidebarOpen(false);
@@ -125,6 +133,15 @@ export function NoteApp() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      toast({ title: "Çıkış Yapıldı", description: "Güvenle çıkış yaptınız." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Hata", description: "Çıkış yapılırken bir sorun oluştu." });
+    }
+  };
+
   const runAiAction = async (action: 'summarize' | 'improve' | 'fix_grammar' | 'generate_title') => {
     if (!activeNote || !activeNote.content) return;
     
@@ -153,7 +170,7 @@ export function NoteApp() {
         variant: "destructive",
         title: "AI İşlemi Başarısız",
         description: isApiKeyError 
-          ? "Google AI API Anahtarı bulunamadı veya geçersiz. Docker kurulumunda anahtarınızı tanımladığınızdan emin olun."
+          ? "Google AI API Anahtarı bulunamadı veya geçersiz."
           : "Bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
       });
     } finally {
@@ -178,41 +195,28 @@ export function NoteApp() {
             <h1 className="font-headline font-bold text-xl tracking-tight text-primary">Not-ELFBEH</h1>
           </div>
           <div className="flex items-center gap-1">
-            <Dialog>
-              <DialogTrigger asChild>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
-                  <Settings className="h-4 w-4 text-muted-foreground" />
+                  <UserIcon className="h-4 w-4 text-muted-foreground" />
                 </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Uygulama Ayarları</DialogTitle>
-                  <DialogDescription>
-                    AI özelliklerini kullanabilmek için gerekli yapılandırma.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex gap-3">
-                    <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
-                    <div className="text-sm text-amber-900">
-                      <p className="font-semibold mb-1">API Anahtarı Gerekli</p>
-                      <p>Docker üzerinde çalışırken AI özelliklerini kullanmak için `GOOGLE_GENAI_API_KEY` değişkenini tanımlamanız gerekir.</p>
-                      <a 
-                        href="https://aistudio.google.com/app/apikey" 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 font-bold underline mt-2 hover:text-amber-700"
-                      >
-                        Ücretsiz Anahtar Al <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">Kullanıcı</p>
+                    <p className="text-xs leading-none text-muted-foreground truncate">
+                      {currentUser?.email}
+                    </p>
                   </div>
-                  <div className="text-xs text-muted-foreground bg-muted p-3 rounded">
-                    <p className="font-mono">docker run -e GOOGLE_GENAI_API_KEY=anahtarınız ...</p>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Çıkış Yap</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
               {isMobile ? <X className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
             </Button>
