@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -13,7 +12,11 @@ import {
   ChevronLeft, 
   PanelLeft,
   Clock,
-  X
+  X,
+  Sparkles,
+  Loader2,
+  Check,
+  Type
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,7 +36,17 @@ import {
   AlertDialogTitle, 
   AlertDialogTrigger 
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useIsMobile } from '@/hooks/use-mobile';
+import { processNoteWithAI } from '@/ai/flows/note-assistant-flow';
+import { useToast } from '@/hooks/use-toast';
 
 export function NoteApp() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -41,7 +54,9 @@ export function NoteApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditing, setIsEditing] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
   const isMobile = useIsMobile();
+  const { toast } = useToast();
 
   useEffect(() => {
     setNotes(getLocalNotes());
@@ -99,9 +114,41 @@ export function NoteApp() {
     }
   };
 
+  const runAiAction = async (action: 'summarize' | 'improve' | 'fix_grammar' | 'generate_title') => {
+    if (!activeNote || !activeNote.content) return;
+    
+    setIsAiProcessing(true);
+    try {
+      const response = await processNoteWithAI({
+        content: activeNote.content,
+        action: action
+      });
+
+      if (action === 'generate_title') {
+        handleUpdateNote(activeNote.id, { title: response.result });
+      } else {
+        handleUpdateNote(activeNote.id, { content: response.result });
+      }
+      
+      toast({
+        title: "Başarılı!",
+        description: "AI işlemini tamamladı.",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: "AI işlemi sırasında bir sorun oluştu. API anahtarınızı kontrol edin.",
+      });
+    } finally {
+      setIsAiProcessing(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden safe-area-inset">
-      {/* Sidebar - Mobile handles it as an overlay or full width */}
+      {/* Sidebar */}
       <aside className={cn(
         "bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out flex flex-col z-40 shrink-0",
         isMobile 
@@ -176,7 +223,6 @@ export function NoteApp() {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col relative overflow-hidden bg-background">
-        {/* Toggle Sidebar Button (when closed) */}
         {!sidebarOpen && (
           <Button 
             variant="ghost" 
@@ -190,7 +236,6 @@ export function NoteApp() {
 
         {activeNote ? (
           <>
-            {/* Toolbar */}
             <header className="h-16 border-b bg-background/50 backdrop-blur-md flex items-center justify-between px-4 md:px-6 shrink-0 pt-safe">
               <div className="flex items-center gap-2 flex-1 ml-10 md:ml-0 overflow-hidden">
                 <input 
@@ -202,6 +247,47 @@ export function NoteApp() {
               </div>
 
               <div className="flex items-center gap-1 md:gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className={cn(
+                        "h-9 px-3 gap-2 rounded-full transition-all",
+                        isAiProcessing && "opacity-70"
+                      )}
+                      disabled={isAiProcessing || !activeNote.content}
+                    >
+                      {isAiProcessing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 text-amber-500" />
+                      )}
+                      <span className="hidden sm:inline">AI Asistan</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>Zekice İşlemler</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => runAiAction('generate_title')}>
+                      <Type className="mr-2 h-4 w-4" />
+                      <span>Başlık Öner</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => runAiAction('summarize')}>
+                      <Book className="mr-2 h-4 w-4" />
+                      <span>Özet Çıkar</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => runAiAction('improve')}>
+                      <Sparkles className="mr-2 h-4 w-4 text-amber-500" />
+                      <span>Metni Güzelleştir</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => runAiAction('fix_grammar')}>
+                      <Check className="mr-2 h-4 w-4" />
+                      <span>Hataları Düzelt</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 <div className="flex bg-muted rounded-lg p-0.5 md:p-1 mr-1">
                   <Button 
                     variant={isEditing ? 'secondary' : 'ghost'} 
@@ -247,9 +333,7 @@ export function NoteApp() {
               </div>
             </header>
 
-            {/* Editor/Preview Container */}
             <div className="flex-1 relative overflow-hidden flex flex-col md:flex-row">
-              {/* Editor */}
               <div className={cn(
                 "flex-1 h-full flex flex-col bg-background transition-all duration-300",
                 isEditing ? "block" : "hidden md:hidden"
@@ -262,7 +346,6 @@ export function NoteApp() {
                 />
               </div>
 
-              {/* Real-time Preview */}
               <div className={cn(
                 "flex-1 h-full flex flex-col bg-background/30 transition-all duration-300 border-l",
                 !isEditing ? "block" : "hidden md:flex"
