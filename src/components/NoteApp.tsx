@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Note, getLocalNotes, saveLocalNotes, createEmptyNote } from '@/lib/notes-store';
+import { Note } from '@/lib/notes-store';
 import { 
   Plus, 
   Trash2, 
@@ -18,9 +18,6 @@ import {
   Loader2,
   Check,
   Type,
-  Settings,
-  AlertCircle,
-  ExternalLink,
   LogOut,
   User as UserIcon
 } from 'lucide-react';
@@ -50,22 +47,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { processNoteWithAI } from '@/ai/flows/note-assistant-flow';
 import { useToast } from '@/hooks/use-toast';
-import { auth } from '@/lib/firebase';
+import { useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { signOut } from 'firebase/auth';
+import { collection, doc } from 'firebase/firestore';
+import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function NoteApp() {
-  const [notes, setNotes] = useState<Note[]>([]);
+  const { user, auth } = useUser() as any;
+  const firestore = useFirestore();
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditing, setIsEditing] = useState(true);
@@ -73,12 +65,14 @@ export function NoteApp() {
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const isMobile = useIsMobile();
   const { toast } = useToast();
-  const currentUser = auth.currentUser;
+
+  const notesRef = useMemoFirebase(() => 
+    user ? collection(firestore, 'users', user.uid, 'notes') : null
+  , [firestore, user]);
+
+  const { data: notes = [], isLoading: isNotesLoading } = useCollection<Note>(notesRef);
 
   useEffect(() => {
-    // Notları kullanıcıya özel bir anahtarla saklamak daha güvenlidir.
-    // Şimdilik genel localStorage kullanılıyor ancak login şartı eklendi.
-    setNotes(getLocalNotes());
     if (isMobile) {
       setSidebarOpen(false);
     }
@@ -94,15 +88,27 @@ export function NoteApp() {
         n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
         n.content.toLowerCase().includes(searchQuery.toLowerCase())
       )
-      .sort((a, b) => b.updatedAt - a.updatedAt);
+      .sort((a, b) => {
+        const dateA = typeof a.updatedAt === 'string' ? new Date(a.updatedAt).getTime() : a.updatedAt;
+        const dateB = typeof b.updatedAt === 'string' ? new Date(b.updatedAt).getTime() : b.updatedAt;
+        return (dateB || 0) - (dateA || 0);
+      });
   }, [notes, searchQuery]);
 
-  const handleCreateNote = () => {
-    const newNote = createEmptyNote();
-    const updatedNotes = [newNote, ...notes];
-    setNotes(updatedNotes);
-    saveLocalNotes(updatedNotes);
-    setActiveNoteId(newNote.id);
+  const handleCreateNote = async () => {
+    if (!user || !notesRef) return;
+    
+    const newNoteId = crypto.randomUUID();
+    const newNote = {
+      id: newNoteId,
+      title: 'Adsız Not',
+      content: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    addDocumentNonBlocking(notesRef, newNote);
+    setActiveNoteId(newNoteId);
     setIsEditing(true);
     if (isMobile) {
       setSidebarOpen(false);
@@ -110,20 +116,12 @@ export function NoteApp() {
   };
 
   const handleUpdateNote = (id: string, updates: Partial<Note>) => {
-    const updatedNotes = notes.map(n => 
-      n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n
-    );
-    setNotes(updatedNotes);
-    saveLocalNotes(updatedNotes);
-  };
-
-  const handleDeleteNote = (id: string) => {
-    const updatedNotes = notes.filter(n => n.id !== id);
-    setNotes(updatedNotes);
-    saveLocalNotes(updatedNotes);
-    if (activeNoteId === id) {
-      setActiveNoteId(null);
-    }
+    if (!user) return;
+    const noteDocRef = doc(firestore, 'users', user.uid, 'notes', id);
+    updateDocumentNonBlocking(noteDocRef, { 
+      ...updates, 
+      updatedAt: new Date().toISOString() 
+    });
   };
 
   const handleNoteSelect = (id: string) => {
@@ -164,17 +162,22 @@ export function NoteApp() {
       });
     } catch (error: any) {
       console.error(error);
-      const isApiKeyError = error?.message?.includes('API_KEY_INVALID') || error?.message?.includes('API key not found');
-      
       toast({
         variant: "destructive",
         title: "AI İşlemi Başarısız",
-        description: isApiKeyError 
-          ? "Google AI API Anahtarı bulunamadı veya geçersiz."
-          : "Bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
+        description: "Bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
       });
     } finally {
       setIsAiProcessing(false);
+    }
+  };
+
+  const handleDeleteNote = (id: string) => {
+    if (!user) return;
+    const noteDocRef = doc(firestore, 'users', user.uid, 'notes', id);
+    deleteDocumentNonBlocking(noteDocRef);
+    if (activeNoteId === id) {
+      setActiveNoteId(null);
     }
   };
 
@@ -204,14 +207,14 @@ export function NoteApp() {
               <DropdownMenuContent align="start" className="w-56">
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">Kullanıcı</p>
+                    <p className="text-sm font-medium leading-none">Hesabım</p>
                     <p className="text-xs leading-none text-muted-foreground truncate">
-                      {currentUser?.email}
+                      {user?.email}
                     </p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Çıkış Yap</span>
                 </DropdownMenuItem>
@@ -236,34 +239,40 @@ export function NoteApp() {
         </div>
 
         <ScrollArea className="flex-1 px-2">
-          <div className="space-y-1 py-2">
-            {filteredNotes.length === 0 ? (
-              <div className="text-center py-10 px-4 text-muted-foreground">
-                <p className="text-sm">Not bulunamadı.</p>
-              </div>
-            ) : (
-              filteredNotes.map(note => (
-                <button
-                  key={note.id}
-                  onClick={() => handleNoteSelect(note.id)}
-                  className={cn(
-                    "w-full text-left p-3 rounded-md transition-all group",
-                    activeNoteId === note.id 
-                      ? "bg-primary text-primary-foreground shadow-md" 
-                      : "hover:bg-sidebar-accent text-sidebar-foreground"
-                  )}
-                >
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className="font-medium line-clamp-1">{note.title || 'Adsız Not'}</h3>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs opacity-70">
-                    <Clock className="h-3 w-3" />
-                    <span>{format(note.updatedAt, 'MMM d, h:mm a')}</span>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
+          {isNotesLoading ? (
+            <div className="flex justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-1 py-2">
+              {filteredNotes.length === 0 ? (
+                <div className="text-center py-10 px-4 text-muted-foreground">
+                  <p className="text-sm">Not bulunamadı.</p>
+                </div>
+              ) : (
+                filteredNotes.map(note => (
+                  <button
+                    key={note.id}
+                    onClick={() => handleNoteSelect(note.id)}
+                    className={cn(
+                      "w-full text-left p-3 rounded-md transition-all group",
+                      activeNoteId === note.id 
+                        ? "bg-primary text-primary-foreground shadow-md" 
+                        : "hover:bg-sidebar-accent text-sidebar-foreground"
+                    )}
+                  >
+                    <div className="flex justify-between items-start mb-1">
+                      <h3 className="font-medium line-clamp-1">{note.title || 'Adsız Not'}</h3>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs opacity-70">
+                      <Clock className="h-3 w-3" />
+                      <span>{note.updatedAt ? format(new Date(note.updatedAt), 'MMM d, h:mm a') : 'Az önce'}</span>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </ScrollArea>
 
         <div className="p-4 border-t border-sidebar-border">
@@ -430,8 +439,8 @@ export function NoteApp() {
               </div>
             </div>
             <div className="max-w-md space-y-2">
-              <h2 className="text-xl md:text-2xl font-headline font-bold text-primary">Çalışma Alanınız Boş</h2>
-              <p className="text-muted-foreground text-sm md:text-base">Fikirlerinizi kaydetmek için yan menüden bir not seçin veya yeni bir tane oluşturun.</p>
+              <h2 className="text-xl md:text-2xl font-headline font-bold text-primary">Bulut Notlarınız Hazır</h2>
+              <p className="text-muted-foreground text-sm md:text-base">Fikirlerinizi kaydetmek için yan menüden bir not seçin veya yeni bir tane oluşturun. Tüm notlarınız güvenle Firestore'da saklanır.</p>
             </div>
             <Button size="lg" onClick={handleCreateNote} className="px-10 h-12 text-lg font-medium shadow-lg hover:translate-y-[-2px] transition-all rounded-xl">
               İlk Notu Oluştur
