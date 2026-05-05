@@ -10,17 +10,15 @@ import {
   Eye, 
   Book, 
   Search, 
-  Menu, 
   ChevronLeft, 
-  Sidebar as SidebarIcon,
-  Save,
-  Clock
+  PanelLeft,
+  Clock,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -35,6 +33,7 @@ import {
   AlertDialogTitle, 
   AlertDialogTrigger 
 } from '@/components/ui/alert-dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export function NoteApp() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -42,10 +41,14 @@ export function NoteApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditing, setIsEditing] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     setNotes(getLocalNotes());
-  }, []);
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, [isMobile]);
 
   const activeNote = useMemo(() => 
     notes.find(n => n.id === activeNoteId) || null
@@ -67,6 +70,9 @@ export function NoteApp() {
     saveLocalNotes(updatedNotes);
     setActiveNoteId(newNote.id);
     setIsEditing(true);
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
   };
 
   const handleUpdateNote = (id: string, updates: Partial<Note>) => {
@@ -86,12 +92,21 @@ export function NoteApp() {
     }
   };
 
+  const handleNoteSelect = (id: string) => {
+    setActiveNoteId(id);
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  };
+
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      {/* Sidebar */}
+    <div className="flex h-screen bg-background text-foreground overflow-hidden safe-area-inset">
+      {/* Sidebar - Mobile handles it as an overlay or full width */}
       <aside className={cn(
-        "bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out flex flex-col",
-        sidebarOpen ? "w-80" : "w-0 opacity-0 -translate-x-full pointer-events-none"
+        "bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out flex flex-col z-40 shrink-0",
+        isMobile 
+          ? (sidebarOpen ? "fixed inset-0 w-full" : "fixed inset-0 w-0 -translate-x-full opacity-0 pointer-events-none")
+          : (sidebarOpen ? "w-80" : "w-0 opacity-0 -translate-x-full pointer-events-none")
       )}>
         <div className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -101,7 +116,7 @@ export function NoteApp() {
             <h1 className="font-headline font-bold text-xl tracking-tight text-primary">Not-ELFBEH</h1>
           </div>
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
-            <ChevronLeft className="h-5 w-5" />
+            {isMobile ? <X className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
           </Button>
         </div>
 
@@ -109,7 +124,7 @@ export function NoteApp() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Search notes..." 
+              placeholder="Notlarda ara..." 
               className="pl-9 bg-background/50 border-none focus-visible:ring-1 focus-visible:ring-primary/20"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -121,13 +136,13 @@ export function NoteApp() {
           <div className="space-y-1 py-2">
             {filteredNotes.length === 0 ? (
               <div className="text-center py-10 px-4 text-muted-foreground">
-                <p className="text-sm">No notes found.</p>
+                <p className="text-sm">Not bulunamadı.</p>
               </div>
             ) : (
               filteredNotes.map(note => (
                 <button
                   key={note.id}
-                  onClick={() => setActiveNoteId(note.id)}
+                  onClick={() => handleNoteSelect(note.id)}
                   className={cn(
                     "w-full text-left p-3 rounded-md transition-all group",
                     activeNoteId === note.id 
@@ -136,7 +151,7 @@ export function NoteApp() {
                   )}
                 >
                   <div className="flex justify-between items-start mb-1">
-                    <h3 className="font-medium line-clamp-1">{note.title || 'Untitled'}</h3>
+                    <h3 className="font-medium line-clamp-1">{note.title || 'Adsız Not'}</h3>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs opacity-70">
                     <Clock className="h-3 w-3" />
@@ -150,82 +165,81 @@ export function NoteApp() {
 
         <div className="p-4 border-t border-sidebar-border">
           <Button 
-            className="w-full h-11 font-medium shadow-sm hover:shadow-md transition-shadow gap-2"
+            className="w-full h-12 font-medium shadow-sm hover:shadow-md transition-shadow gap-2 rounded-xl"
             onClick={handleCreateNote}
           >
             <Plus className="h-5 w-5" />
-            New Note
+            Yeni Not
           </Button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col relative overflow-hidden">
+      <main className="flex-1 flex flex-col relative overflow-hidden bg-background">
         {/* Toggle Sidebar Button (when closed) */}
         {!sidebarOpen && (
           <Button 
             variant="ghost" 
             size="icon" 
-            className="absolute left-4 top-4 z-50 bg-background/80 backdrop-blur shadow-sm border"
+            className="absolute left-4 top-4 z-50 bg-background/80 backdrop-blur shadow-sm border rounded-full h-10 w-10"
             onClick={() => setSidebarOpen(true)}
           >
-            <SidebarIcon className="h-5 w-5" />
+            <PanelLeft className="h-5 w-5" />
           </Button>
         )}
 
         {activeNote ? (
           <>
             {/* Toolbar */}
-            <header className="h-16 border-b bg-background/50 backdrop-blur-md flex items-center justify-between px-6 shrink-0">
-              <div className="flex items-center gap-4 flex-1">
-                {!sidebarOpen && <div className="w-10" />} {/* Spacer for toggle button */}
+            <header className="h-16 border-b bg-background/50 backdrop-blur-md flex items-center justify-between px-4 md:px-6 shrink-0 pt-safe">
+              <div className="flex items-center gap-2 flex-1 ml-10 md:ml-0 overflow-hidden">
                 <input 
-                  className="bg-transparent border-none focus:outline-none text-xl font-headline font-semibold text-primary w-full max-w-md"
+                  className="bg-transparent border-none focus:outline-none text-lg md:text-xl font-headline font-semibold text-primary w-full truncate"
                   value={activeNote.title}
-                  placeholder="Note Title"
+                  placeholder="Not Başlığı"
                   onChange={(e) => handleUpdateNote(activeNote.id, { title: e.target.value })}
                 />
               </div>
 
-              <div className="flex items-center gap-2">
-                <div className="flex bg-muted rounded-lg p-1 mr-2">
+              <div className="flex items-center gap-1 md:gap-2">
+                <div className="flex bg-muted rounded-lg p-0.5 md:p-1 mr-1">
                   <Button 
                     variant={isEditing ? 'secondary' : 'ghost'} 
                     size="sm" 
-                    className="h-8 gap-2 rounded-md"
+                    className="h-8 md:h-9 px-2 md:px-3 gap-1 md:gap-2 rounded-md"
                     onClick={() => setIsEditing(true)}
                   >
                     <Edit3 className="h-4 w-4" />
-                    Edit
+                    <span className="hidden xs:inline">Yaz</span>
                   </Button>
                   <Button 
                     variant={!isEditing ? 'secondary' : 'ghost'} 
                     size="sm" 
-                    className="h-8 gap-2 rounded-md"
+                    className="h-8 md:h-9 px-2 md:px-3 gap-1 md:gap-2 rounded-md"
                     onClick={() => setIsEditing(false)}
                   >
                     <Eye className="h-4 w-4" />
-                    Preview
+                    <span className="hidden xs:inline">Gör</span>
                   </Button>
                 </div>
 
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full h-9 w-9">
                       <Trash2 className="h-5 w-5" />
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will permanently delete your note "{activeNote.title || 'Untitled'}". This action cannot be undone.
+                        "{activeNote.title || 'Adsız Not'}" kalıcı olarak silinecektir. Bu işlem geri alınamaz.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>Vazgeç</AlertDialogCancel>
                       <AlertDialogAction onClick={() => handleDeleteNote(activeNote.id)} className="bg-destructive text-destructive-foreground">
-                        Delete
+                        Sil
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -241,8 +255,8 @@ export function NoteApp() {
                 isEditing ? "block" : "hidden md:hidden"
               )}>
                 <Textarea
-                  className="flex-1 p-8 text-lg font-mono border-none focus-visible:ring-0 resize-none bg-transparent"
-                  placeholder="Start typing your Markdown here..."
+                  className="flex-1 p-4 md:p-8 text-base md:text-lg font-mono border-none focus-visible:ring-0 resize-none bg-transparent"
+                  placeholder="Markdown yazmaya başlayın..."
                   value={activeNote.content}
                   onChange={(e) => handleUpdateNote(activeNote.id, { content: e.target.value })}
                 />
@@ -253,14 +267,14 @@ export function NoteApp() {
                 "flex-1 h-full flex flex-col bg-background/30 transition-all duration-300 border-l",
                 !isEditing ? "block" : "hidden md:flex"
               )}>
-                <ScrollArea className="flex-1 p-8 md:p-12">
+                <ScrollArea className="flex-1 p-4 md:p-12">
                   <div className="max-w-3xl mx-auto">
                     {activeNote.content ? (
                       <MarkdownRenderer content={activeNote.content} />
                     ) : (
                       <div className="text-muted-foreground italic flex flex-col items-center justify-center py-20 opacity-50">
                         <Book className="h-12 w-12 mb-4" />
-                        <p>No content to preview yet.</p>
+                        <p>Henüz içerik yok.</p>
                       </div>
                     )}
                   </div>
@@ -270,18 +284,18 @@ export function NoteApp() {
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-6">
-            <div className="relative w-64 h-64 bg-accent/10 rounded-full flex items-center justify-center">
-              <Book className="w-32 h-32 text-primary opacity-20" />
-              <div className="absolute -bottom-2 -right-2 bg-background p-4 rounded-xl shadow-lg border">
-                 <Plus className="h-8 w-8 text-primary animate-pulse" />
+            <div className="relative w-48 h-48 md:w-64 md:h-64 bg-accent/10 rounded-full flex items-center justify-center">
+              <Book className="w-24 h-24 md:w-32 md:h-32 text-primary opacity-20" />
+              <div className="absolute -bottom-2 -right-2 bg-background p-3 md:p-4 rounded-xl shadow-lg border">
+                 <Plus className="h-6 w-6 md:h-8 md:w-8 text-primary animate-pulse" />
               </div>
             </div>
             <div className="max-w-md space-y-2">
-              <h2 className="text-2xl font-headline font-bold text-primary">Your Workspace is Empty</h2>
-              <p className="text-muted-foreground">Select a note from the sidebar or create a new one to get started with your ideas.</p>
+              <h2 className="text-xl md:text-2xl font-headline font-bold text-primary">Çalışma Alanınız Boş</h2>
+              <p className="text-muted-foreground text-sm md:text-base">Fikirlerinizi kaydetmek için yan menüden bir not seçin veya yeni bir tane oluşturun.</p>
             </div>
-            <Button size="lg" onClick={handleCreateNote} className="px-10 h-12 text-lg font-medium shadow-lg hover:translate-y-[-2px] transition-all">
-              Create First Note
+            <Button size="lg" onClick={handleCreateNote} className="px-10 h-12 text-lg font-medium shadow-lg hover:translate-y-[-2px] transition-all rounded-xl">
+              İlk Notu Oluştur
             </Button>
           </div>
         )}
