@@ -1,54 +1,47 @@
-# Not-ELFBEH | Markdown Notes
 
-Bu uygulama Docker üzerinde çalıştırılmak üzere optimize edilmiştir ve Google Gemini AI desteği ile Firebase Kimlik Doğrulama sunar.
+# Not-ELFBEH | Professional Markdown Notes
 
-## Güvenlik Uyarısı
-GitHub'a kod yüklerken `.env` dosyanızı **asla** yüklemeyin. Bu proje, hassas anahtarların commit edilmesini engellemek için `.gitignore` dosyası içermektedir.
+Bu uygulama, Docker üzerinde çalıştırılmak üzere optimize edilmiş, Google Gemini AI desteği ve Firebase Authentication sunan profesyonel bir not tutma çözümüdür.
+
+## Özellikler
+*   **Güvenli Giriş:** Firebase Auth ile kullanıcı bazlı erişim.
+*   **AI Asistanı:** Notlarınızı özetleyin, iyileştirin veya başlık önerileri alın.
+*   **Gerçek Zamanlı:** Yazdığınız her şey anında Firestore'a kaydedilir.
+*   **PWA Desteği:** Mobil cihazlara "uygulama" olarak yüklenebilir.
+*   **Markdown:** Tam kapsamlı Markdown render desteği.
 
 ## Kurulum ve Yapılandırma
 
-Uygulamanın çalışması için gerekli olan çevre değişkenlerini (Environment Variables) `.env` dosyası içinde tanımlamanız gerekir.
+Uygulamanın çalışması için gerekli olan çevre değişkenlerini `.env` dosyası içinde tanımlamanız gerekir.
 
-### 1. Yapılandırma Dosyası
-Proje kök dizininde bir `.env` dosyası oluşturun ve içini Firebase konsolundan aldığınız bilgilerle doldurun:
+### 1. Ortam Değişkenleri (.env)
+Proje kök dizininde bir `.env` dosyası oluşturun:
 
 ```env
-# Google AI (Gemini) API Anahtarı
-GOOGLE_GENAI_API_KEY=your_gemini_api_key_here
+# Google AI (Gemini) API Key
+GOOGLE_GENAI_API_KEY=your_key_here
 
-# Firebase Konfigürasyonu
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_id
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=your_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_bucket
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 ```
 
-## Docker ile Çalıştırma
+## Docker ile Dağıtım
 
-### Seçenek 1: Docker Compose ile (Önerilen)
-
-En hızlı ve kolay yöntemdir. `.env` dosyanızdaki değişkenleri otomatik olarak okur:
-
+### Seçenek 1: Docker Compose (Önerilen)
 ```bash
-# Uygulamayı derleyin ve arka planda başlatın
 docker-compose up -d --build
 ```
 
-### Seçenek 2: Docker CLI ile
-
-Eğer işlemleri adım adım yapmak isterseniz:
-
+### Seçenek 2: Docker CLI
 ```bash
-# 1. İmajı derleyin
 docker build -t not-elfbeh .
-
-# 2. Konteyneri .env dosyasını kullanarak çalıştırın
 docker run -d -p 3000:3000 --name not-elfbeh --env-file .env not-elfbeh
 ```
 
-## Önemli Notlar
-*   **Derleme Aşaması:** Next.js, `NEXT_PUBLIC_` ile başlayan değişkenleri **derleme (build)** anında kodun içine gömer. Bu nedenle, Docker imajını oluşturmadan (build etmeden) önce `.env` dosyanızın hazır ve doğru bilgilerle dolu olduğundan emin olun.
-*   **Değişiklikler:** Eğer `.env` dosyasındaki bir bilgiyi değiştirirseniz, imajı yeniden derlemeniz (build etmeniz) gerekir.
-*   **Port:** Uygulama varsayılan olarak `3000` portunda çalışır.
+## Lisans
+Bu proje özel kullanım için tasarlanmıştır. Tüm hakları saklıdır.
