@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * CORE PHILOSOPHY
+     * This ruleset enforces a strict Path-Based Ownership model. All user data is nested 
+     * under a unique user identifier in the document path, ensuring that authorization 
+     * is tied directly to the user's authenticated identity.
+     *
+     * DATA STRUCTURE
+     * Data is organized hierarchically: /users/{userId}/notes/{noteId}. This structure 
+     * allows for "Authorization Independence," where the security of a note is 
+     * determined by its location in the tree rather than complex logic or external 
+     * document lookups.
+     *
+     * KEY SECURITY DECISIONS
+     * 1. Ownership via Path: The {userId} segment of the path is the primary 
+     *    authorization factor. Access is granted if `request.auth.uid == userId`.
+     * 2. Prototyping Flexibility: While authorization is strictly enforced, the 
+     *    internal schema of notes is not validated, allowing developers to iterate 
+     *    on Markdown content structures without updating rules.
+     * 3. Relational Integrity: We enforce that the 'id' field within a Note document 
+     *    matches the 'noteId' in the path during creation to maintain consistency.
+     * 4. State Safety: All update and delete operations require the document to 
+     *    exist and the user to be the verified owner.
+     */
+
+    // --- Helper Functions ---
+
+    /** @description Checks if the request is made by an authenticated user. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** @description Checks if the authenticated user matches the provided userId. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** 
+     * @description Combines ownership check with existence check for destructive operations. 
+     * Ensures we don't attempt to modify or delete what isn't there.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for the root user document. Allows users to manage their own profile.
+     * @path /users/{userId}
+     * @allow (create) If the authenticated user's UID matches the new document's ID.
+     * @deny (list) If a user tries to list all users in the system.
+     * @principle Verified Identity and Self-Creation.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Disallow user listing for privacy
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description Rules for Markdown notes. Enforces private ownership via the path.
+       * @path /users/{userId}/notes/{noteId}
+       * @allow (list) If the user queries their own /notes subcollection.
+       * @deny (create) If the internal 'id' field does not match the 'noteId' in the path.
+       * @principle Path-Based Ownership and Relational Integrity.
+       */
+      match /notes/{noteId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        
+        allow create: if isOwner(userId) 
+          && request.resource.data.id == noteId;
+        
+        allow update: if isExistingOwner(userId)
+          && request.resource.data.id == resource.data.id; // Enforce immutable ID
+          
+        allow delete: if isExistingOwner(userId);
+      }
+    }
+
+    // Default deny for any paths not explicitly matched
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

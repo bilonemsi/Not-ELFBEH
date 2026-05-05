@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "Note": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Note",
+      "type": "object",
+      "description": "Represents a single Markdown formatted note created by the user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Note entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the note, used for identification in lists."
+        },
+        "content": {
+          "type": "string",
+          "description": "The actual Markdown formatted text content of the note."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the note was first created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the note was last modified.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "content",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}/notes/{noteId}",
+        "definition": {
+          "entityName": "Note",
+          "schema": {
+            "$ref": "#/backend/entities/Note"
+          },
+          "description": "Stores a single Markdown note, privately owned by a specific user. The 'userId' in the path serves as the explicit owner identifier, facilitating simple and secure authorization rules without requiring denormalized owner fields within the document itself or 'get()' operations. This structure supports atomic operations and QAPs for listing notes.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns this note, matching 'request.auth.uid'."
+            },
+            {
+              "name": "noteId",
+              "description": "The unique identifier for the specific Markdown note."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "Given the user's primary requirement for local note storage (AsyncStorage), this Firestore structure is designed for future expansion, enabling multi-device synchronization and backup capabilities should the application evolve beyond local-only functionality. The core principle driving this design is **Authorization Independence**, ensuring that security rules are simple, robust, and easily debuggable.\n\nWe will use a hierarchical path-based ownership model: `/users/{userId}/notes/{noteId}`.\n\n1.  **Authorization Independence:** This structure inherently achieves authorization independence. By placing notes within a user's specific path (`/users/{userId}/notes`), the `ownerId` of the note is implicitly part of its full document path. Firebase Security Rules can directly check `request.auth.uid == userId` without needing to perform any `get()` operations on parent documents or even on the note document itself to determine ownership. This eliminates complex, non-atomic rule evaluations and makes authorization highly efficient and clear.\n\n2.  **QAPs (Rules are not Filters):** This structure naturally supports secure `list` operations. When a user requests to list notes from `/users/{request.auth.uid}/notes`, the security rules can enforce that `userId` in the path must match `request.auth.uid`. This ensures that a user can only query and retrieve their own notes, satisfying the Query as a Security Pillar (QAP) principle without relying on client-side filtering or inefficient security rules that act as filters. All documents returned by a query matching this path will inherently be authorized for the requesting user.\n\n3.  **Structural Segregation:** All documents within `/users/{userId}/notes` share the same security posture: they are private to `userId`. This homogeneity simplifies security rules significantly, as there's no need to differentiate access based on document content (e.g., public vs. private notes) within this collection.\n\n4.  **Access Modeling:** The design leverages Path-Based ownership, which is the most secure and straightforward pattern for private, user-owned data. This aligns perfectly with the application's current scope of individual note management."
+  }
+}
