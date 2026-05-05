@@ -16,7 +16,10 @@ import {
   Sparkles,
   Loader2,
   Check,
-  Type
+  Type,
+  Settings,
+  AlertCircle,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +47,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { processNoteWithAI } from '@/ai/flows/note-assistant-flow';
 import { useToast } from '@/hooks/use-toast';
@@ -134,12 +145,16 @@ export function NoteApp() {
         title: "Başarılı!",
         description: "AI işlemini tamamladı.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      const isApiKeyError = error?.message?.includes('API_KEY_INVALID') || error?.message?.includes('API key not found');
+      
       toast({
         variant: "destructive",
-        title: "Hata",
-        description: "AI işlemi sırasında bir sorun oluştu. API anahtarınızı kontrol edin.",
+        title: "AI İşlemi Başarısız",
+        description: isApiKeyError 
+          ? "Google AI API Anahtarı bulunamadı veya geçersiz. Docker kurulumunda anahtarınızı tanımladığınızdan emin olun."
+          : "Bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
       });
     } finally {
       setIsAiProcessing(false);
@@ -162,9 +177,46 @@ export function NoteApp() {
             </div>
             <h1 className="font-headline font-bold text-xl tracking-tight text-primary">Not-ELFBEH</h1>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
-            {isMobile ? <X className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <Settings className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Uygulama Ayarları</DialogTitle>
+                  <DialogDescription>
+                    AI özelliklerini kullanabilmek için gerekli yapılandırma.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex gap-3">
+                    <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+                    <div className="text-sm text-amber-900">
+                      <p className="font-semibold mb-1">API Anahtarı Gerekli</p>
+                      <p>Docker üzerinde çalışırken AI özelliklerini kullanmak için `GOOGLE_GENAI_API_KEY` değişkenini tanımlamanız gerekir.</p>
+                      <a 
+                        href="https://aistudio.google.com/app/apikey" 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 font-bold underline mt-2 hover:text-amber-700"
+                      >
+                        Ücretsiz Anahtar Al <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground bg-muted p-3 rounded">
+                    <p className="font-mono">docker run -e GOOGLE_GENAI_API_KEY=anahtarınız ...</p>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
+              {isMobile ? <X className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+            </Button>
+          </div>
         </div>
 
         <div className="px-4 mb-4">
